@@ -4,12 +4,9 @@
 
 
   The circuit:
-  - Digital Sensors from GPIO pins 2 through 12 to ground
-
-  LED_S_D = LED Signal Direction
-  PF = Pattern Flow
-
-  created 2021
+  - Digital Sensors input now uses 74HC165 PISO shift-register
+  
+  created 02-01-2021
   modified 31-07-2021
   Kolade O. Adetoyinbo [https://github.com/CaptWeiss](Capt. Weiss)
 
