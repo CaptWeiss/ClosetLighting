@@ -16,11 +16,11 @@
 #include <FastLED.h>
 #include <main.h>
 
-#define DATA_PIN 13
+#define DATA_PIN 12
 #define NUM_LEDS 126      // 56 //126
 #define COLOR_POT A1
 
-uint8_t sensePINs; // this persist input state to check for posible changes in the next input pin reads
+uint8_t sensePINs = 0; // this persist input state to check for posible changes in the next input pin reads
 bool started = false; // used to decide a specific operation on first power
 
 
@@ -40,7 +40,7 @@ uint8_t S2[2] = {S1[1], 46} ;
 uint8_t S3[2] = {S1[1]+S2[1], 60} ;
 
 boolean AllSeg[3] = {false, false, false} ;
-uint8_t SegMask[3] = {B11000000,B00111100,B00000011} ;
+uint8_t SegMask[3] = {0x3,0x3c,0xc0} ;
 
 
 volatile uint8_t favColor = 120 ;
@@ -53,7 +53,7 @@ CRGB leds[NUM_LEDS];
 
 void setup() {
   Serial.begin(115200);
-  delay(2000);
+  delay(200);
   // 74HC165 pins
   pinMode(load, OUTPUT);
   pinMode(clockEnablePin, OUTPUT);
@@ -63,16 +63,13 @@ void setup() {
   FastLED.addLeds<WS2812B, DATA_PIN, GRB>(leds, NUM_LEDS); // GRB ordering is typical
   FastLED.setBrightness(brigtness);
   readAnalogPin();
-  if(!started) {
-    intro();
-    started=true ;
-  }
+  intro();
   delay(5000);
 }
 
 void loop() {
 
-  EVERY_N_MILLISECONDS(50) {
+  EVERY_N_SECONDS(2) {
     programme();
   }
 
@@ -81,7 +78,11 @@ void loop() {
     readAnalogPin();
   }
 
-  EVERY_N_MINUTES(1) {
+  EVERY_N_MILLISECONDS(400) {
+    update();
+  }
+
+  EVERY_N_SECONDS(20) {
     blinkIndicator();
   }
 
@@ -100,30 +101,36 @@ void programme() {
   // Get data from 74HC165
   digitalWrite(clockIn, HIGH);
   digitalWrite(clockEnablePin, LOW);
-  uint8_t incoming = shiftIn(dataIn, clockIn, LSBFIRST);
+  uint8_t rawIncoming = shiftIn(dataIn, clockIn, LSBFIRST);
+  uint8_t incoming = ~rawIncoming ;
   digitalWrite(clockEnablePin, HIGH);
 
   if (sensePINs ^ incoming) { // Check if any of the bits(input state) has changed since last checked
-    Serial.print("PINs state changed to - ");
+    Serial.print("\n\nPINs state changed to - ");
     Serial.print(incoming, BIN);
-    Serial.print("(");
+    Serial.print("【");
     Serial.print(incoming);
-    Serial.println(")");
+    Serial.println("】\n");
+    Serial.print("\n\n【RAW】 PINs state changed to - ");
+    Serial.print(rawIncoming, BIN);
+    Serial.print("【");
+    Serial.print(rawIncoming);
+    Serial.println("】\n");
     for (uint8_t i = 0; i < 8; i++)
     {
       int n = incoming & (1 << i);
       int changedPIN = (sensePINs & (1 << i)) ^ n;
       if (changedPIN)
       {
-        Serial.print("Switch-");
-        Serial.print(i + 2);
-        Serial.println(n > 0 ? ": ON" : ": OFF");
-        Serial.println();
-        handleInputChange(i + 2, n > 0);
+        Serial.print("\nSwitch-");
+        Serial.print(i + 1);
+        Serial.println(n > 0 ? ": ON" : ": OFF\n");
+        handleInputChange(i, n > 0);
       }
     }
     sensePINs = incoming;
   }
+  readAnalogPin();
 }
 
 void fadeOffDueSegment() {
@@ -134,18 +141,24 @@ void fadeOffDueSegment() {
       {
       case 0:
         turnOff(S1[0], S1[1], i);
-        if (AllSeg[i])
+        if (AllSeg[i]){
+          Serial.print("\nTurning off segment " + String(i + 1));
           AllSeg[i] = false;
+        }
         break;
       case 1:
         turnOff(S2[0], S2[1], i);
-        if (AllSeg[i])
+        if (AllSeg[i]) {
+          Serial.print("\nTurning off segment " + String(i + 1));
           AllSeg[i] = false;
+        }
         break;
       case 2:
         turnOff(S3[0], S3[1], i);
-        if (AllSeg[i])
+        if (AllSeg[i]) {
+          Serial.print("\nTurning off segment " + String(i + 1));
           AllSeg[i] = false;
+        }
         break;
       default:
         break;
@@ -155,10 +168,10 @@ void fadeOffDueSegment() {
 }
 
 void blinkIndicator() {
-  leds[S1[0]] = CRGB::Green;
+  leds[S1[0]+1] = CRGB::Green;
   FastLED.show();
   FastLED.delay(200);
-  leds[S1[0]] = leds[S1[0] + 1];
+  leds[S1[0]+1] = leds[S1[0]];
 }
 
 void handleInputChange(uint8_t pin, bool state) {
@@ -182,7 +195,8 @@ void handleInputChange(uint8_t pin, bool state) {
 
 void turnOn(uint8_t start, uint8_t leds_length, uint8_t segIdx) {
   if(!AllSeg[segIdx]) {
-    for (int i = 0; i < brigtness; i++) {
+    Serial.print("\nTurning on segment "+String(segIdx+1));
+    for (int i = 0; i < brigtness; i+=10) {
       fill_solid(leds+start, leds_length, CHSV(favColor, favSaturation, i));
       FastLED.show();
       FastLED.delay(10);
@@ -203,6 +217,27 @@ void readAnalogPin() {
     if(analVal>776) {
       favSaturation = map(analVal, 777, 1023, 255, 0);
     }
+}
+
+void update() {
+  for (uint8_t i = 0; i < 3; i++) {
+    if ((SegMask[i] & sensePINs) > 0) {
+      Serial.print("\n This Segment "+String(i)+" is currently on!\n");
+        switch (i) {
+        case 0:
+          fill_solid(leds + S1[0], S1[1], CHSV(favColor, favSaturation, brigtness));
+          break;
+        case 1:
+          fill_solid(leds + S2[0], S2[1], CHSV(favColor, favSaturation, brigtness));
+          break;
+        case 2:
+          fill_solid(leds + S3[0], S3[1], CHSV(favColor, favSaturation, brigtness));
+          break;
+        default:
+          break;
+        }
+    }
+  }
 }
 
 void intro() {
