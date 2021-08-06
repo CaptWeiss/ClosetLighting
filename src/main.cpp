@@ -94,6 +94,12 @@ void loop() {
 
 
 void programme() {
+  // write pulse to load pin
+  digitalWrite(load,LOW);
+  delayMicroseconds(5);
+  digitalWrite(load,HIGH);
+  delayMicroseconds(5);
+  
   // Get data from 74HC165
   digitalWrite(clockIn, HIGH);
   digitalWrite(clockEnablePin, LOW);
