@@ -42,6 +42,7 @@ uint8_t S3[2] = {S1[1]+S2[1], 60} ;
 boolean AllSeg[3] = {false, false, false} ;
 uint8_t SegMask[3] = {0x3,0x3c,0xc0} ;
 
+boolean debug = false ;
 
 volatile uint8_t favColor = 120 ;
 volatile uint8_t favSaturation = 255;
@@ -106,25 +107,25 @@ void programme() {
   digitalWrite(clockEnablePin, HIGH);
 
   if (sensePINs ^ incoming) { // Check if any of the bits(input state) has changed since last checked
-    Serial.print("\n\nPINs state changed to - ");
-    Serial.print(incoming, BIN);
-    Serial.print("【");
-    Serial.print(incoming);
-    Serial.println("】\n");
-    Serial.print("\n\n【RAW】 PINs state changed to - ");
-    Serial.print(rawIncoming, BIN);
-    Serial.print("【");
-    Serial.print(rawIncoming);
-    Serial.println("】\n");
+    debug&&Serial.print("\n\nPINs state changed to - ");
+    debug&&Serial.print(incoming, BIN);
+    debug&&Serial.print("【");
+    debug&&Serial.print(incoming);
+    debug&&Serial.println("】\n");
+    debug&&Serial.print("\n\n【RAW】 PINs state changed to - ");
+    debug&&Serial.print(rawIncoming, BIN);
+    debug&&Serial.print("【");
+    debug&&Serial.print(rawIncoming);
+    debug&&Serial.println("】\n");
     for (uint8_t i = 0; i < 8; i++)
     {
       int n = incoming & (1 << i);
       int changedPIN = (sensePINs & (1 << i)) ^ n;
       if (changedPIN)
       {
-        Serial.print("\nSwitch-");
-        Serial.print(i + 1);
-        Serial.println(n > 0 ? ": ON" : ": OFF\n");
+        debug&&Serial.print("\nSwitch-");
+        debug&&Serial.print(i + 1);
+        debug&&Serial.println(n > 0 ? ": ON" : ": OFF\n");
         handleInputChange(i, n > 0);
       }
     }
@@ -142,21 +143,21 @@ void fadeOffDueSegment() {
       case 0:
         turnOff(S1[0], S1[1], i);
         if (AllSeg[i]){
-          Serial.print("\nTurning off segment " + String(i + 1));
+          debug&&Serial.print("\nTurning off segment " + String(i + 1));
           AllSeg[i] = false;
         }
         break;
       case 1:
         turnOff(S2[0], S2[1], i);
         if (AllSeg[i]) {
-          Serial.print("\nTurning off segment " + String(i + 1));
+          debug&&Serial.print("\nTurning off segment " + String(i + 1));
           AllSeg[i] = false;
         }
         break;
       case 2:
         turnOff(S3[0], S3[1], i);
         if (AllSeg[i]) {
-          Serial.print("\nTurning off segment " + String(i + 1));
+          debug&&Serial.print("\nTurning off segment " + String(i + 1));
           AllSeg[i] = false;
         }
         break;
@@ -195,7 +196,7 @@ void handleInputChange(uint8_t pin, bool state) {
 
 void turnOn(uint8_t start, uint8_t leds_length, uint8_t segIdx) {
   if(!AllSeg[segIdx]) {
-    Serial.print("\nTurning on segment "+String(segIdx+1));
+    debug&&Serial.print("\nTurning on segment "+String(segIdx+1));
     for (int i = 0; i < brigtness; i+=10) {
       fill_solid(leds+start, leds_length, CHSV(favColor, favSaturation, i));
       FastLED.show();
@@ -222,7 +223,6 @@ void readAnalogPin() {
 void update() {
   for (uint8_t i = 0; i < 3; i++) {
     if ((SegMask[i] & sensePINs) > 0) {
-      Serial.print("\n This Segment "+String(i)+" is currently on!\n");
         switch (i) {
         case 0:
           fill_solid(leds + S1[0], S1[1], CHSV(favColor, favSaturation, brigtness));
